@@ -17,13 +17,6 @@ year_choices <- sort(unique(sales_data$year))
 ui <- page_sidebar(
   title = "Chocosales Sales Analyser",
   sidebar = sidebar(
-    sliderInput(
-      inputId = "bins",
-      label = "Number of bins:",
-      min = 5,
-      max = 50,
-      value = 20
-    ),
     selectInput(
       inputId = "input_start_year",
       label = "Start year:",
@@ -52,7 +45,11 @@ ui <- page_sidebar(
   ),
   card("Card"),
   card("Another card"),
-  plotOutput(outputId = "distPlot")
+  card(
+    full_screen = TRUE,
+    card_header("Year-over-Year Growth By Country"),
+    plotOutput(outputId = "out_yoy_country_plot", height = "260px")
+  )
 )
 
 # Define server logic ----
@@ -75,19 +72,83 @@ server <- function(input, output, session) {
     filtered
   })
 
-  output$distPlot <- renderPlot({
+  yoy_by_country <- reactive({
     filtered <- filtered_sales()
+    start_year <- as.integer(input$input_start_year)
+    end_year <- as.integer(input$input_end_year)
 
-    x <- filtered$sales
-    bins <- seq(min(x), max(x), length.out = input$bins + 1)
+    sales_by_country_year <- aggregate(sales ~ country + year, data = filtered, sum)
 
-    hist(
-      x,
-      breaks = bins,
-      col = "#6B3E26",
-      border = "white",
-      xlab = "Sales",
-      main = "Sales Distribution by Selected Country"
+    sales_prev <- sales_by_country_year[
+      sales_by_country_year$year == start_year,
+      c("country", "sales")
+    ]
+    names(sales_prev)[2] <- "sales_prev"
+
+    sales_curr <- sales_by_country_year[
+      sales_by_country_year$year == end_year,
+      c("country", "sales")
+    ]
+    names(sales_curr)[2] <- "sales_curr"
+
+    comparison <- merge(sales_prev, sales_curr, by = "country", all = FALSE)
+
+    if (nrow(comparison) == 0) {
+      return(comparison)
+    }
+
+    comparison$pct_change <- ifelse(
+      comparison$sales_prev == 0,
+      NA_real_,
+      ((comparison$sales_curr - comparison$sales_prev) / comparison$sales_prev) * 100
+    )
+
+    comparison <- comparison[order(comparison$pct_change, decreasing = TRUE), , drop = FALSE]
+    rownames(comparison) <- comparison$country
+    comparison
+  })
+
+  output$out_yoy_country_plot <- renderPlot({
+    comparison <- yoy_by_country()
+
+    validate(need(nrow(comparison) > 0, "No YoY comparison data available."))
+    validate(need(any(!is.na(comparison$pct_change)), "No YoY comparison data available."))
+
+    plot_data <- comparison[!is.na(comparison$pct_change), , drop = FALSE]
+    colors <- ifelse(plot_data$pct_change >= 0, "#0072B2", "#E69F00")
+
+    old_par <- par(no.readonly = TRUE)
+    on.exit(par(old_par), add = TRUE)
+    par(mar = c(5, 9, 4, 2) + 0.1)
+
+    x_limits <- range(c(plot_data$pct_change, 0))
+
+    bar_positions <- barplot(
+      plot_data$pct_change,
+      horiz = TRUE,
+      names.arg = plot_data$country,
+      col = colors,
+      border = NA,
+      las = 1,
+      xlim = x_limits,
+      xlab = paste0(
+        "Percent change in sales (%) - ",
+        input$input_end_year,
+        " vs ",
+        input$input_start_year
+      ),
+      main = "Year-over-Year Growth By Country"
+    )
+
+    abline(v = 0, col = "#6b7280", lwd = 1)
+    text(
+      x = plot_data$pct_change,
+      y = bar_positions,
+      labels = sprintf("%.1f%%", plot_data$pct_change),
+      pos = ifelse(plot_data$pct_change >= 0, 4, 2),
+      cex = 0.9,
+      col = "#374151",
+      xpd = TRUE
     )
   })
 }
