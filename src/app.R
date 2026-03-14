@@ -65,6 +65,11 @@ ui <- page_sidebar(
       card_header("Year-over-Year Growth By Country"),
       plotOutput(outputId = "out_yoy_country_plot", height = "260px")
     )
+  ),
+  # Footer metadata shown at the bottom of the app
+  tags$div(
+    style = "text-align: center; color: #6b7280; font-size: 0.9rem; margin-top: 1rem; margin-bottom: 0.5rem;",
+    "Author: Chikire Aku-Ibe | Last Updated: 2026-03-13"
   )
 )
 
