@@ -2,6 +2,8 @@
 
 ChocoSales Analyser is a small R Shiny dashboard for exploring global chocolate sales data from 2022 to 2024.
 
+Link to published version on Posit Cloud: https://019ce9e6-afa6-dadf-57a7-a30ce9d213f5.share.connect.posit.cloud/ 
+
 ## What this app does
 
 - Filter sales by country
